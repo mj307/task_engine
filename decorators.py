@@ -8,7 +8,7 @@
 #    - raises TimeoutError if function takes longer than seconds
 #    - works for both sync and async functions
 #    - preserves function metadata
-#
+# 
 # 6. @rate_limit(calls, period)
 #    - allows max `calls` invocations per `period` seconds
 #    - raises RateLimitExceeded (custom exception) if exceeded
