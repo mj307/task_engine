@@ -16,6 +16,34 @@
 #     - If any processor fails, pipeline stops and marks task FAILED
 #     - On success marks task SUCCESS
 #     - Records duration
+import time
+class TaskPipeline:
+    def __init__(self,processors):
+        self.processors = processors
+    def execute(self, task):
+        start = time.time()
+        try:
+            for processor in self.processors:
+                processor.process(task)
+            task.status = "SUCCESS"
+            duration = (time.time()-start) * 1000 # convert to milli seconds
+            return {
+                "task_id": task.id,
+                "output": task.payload,
+                "success": True,
+                "duration_ms": duration,
+                "error": None
+            }
+        except Exception as e:
+            task.status = "FAILED"
+            duration = (time.time()-start) * 1000
+            return {
+                "task_id": task.id,
+                "output": None,
+                "success": False,
+                "duration_ms": duration,
+                "error": str(e)
+            }
 #
 # 14. TaskQueue — thread-safe priority queue
 #     - submit(task) — adds task, higher priority tasks dequeued first
@@ -23,7 +51,6 @@
 #     - empty property
 #     - size property
 #
-
 import heapq
 import asyncio
 import queue
