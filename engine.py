@@ -31,13 +31,20 @@ import queue
 class TaskQueue:
     def __init__(self):
         self.queue = asyncio.PriorityQueue()
-    
+        
     async def submit(self, task):
         await self.queue.put((-task.priority, task))
     
     async def next(self):
         _, task = await self.queue.get()
         return task
+    
+    @property
+    def empty(self):
+        return self.queue.empty()
+    @property
+    def size(self):
+        return self.queue.qsize()
         
     
     
