@@ -1,11 +1,24 @@
 # 10. Processor — abstract base class
 #     - process(task) — abstract async method
 #     - name property — abstract
+from abc import abstractmethod, ABC
+
+class Processor(ABC):
+    @abstractmethod
+    async def process(self, task):
+        pass
+    
+    @property
+    @abstractmethod
+    def name(self):
+        pass
+     
 #
 # 11. ValidationProcessor(Processor)
 #     - Validates task payload has required keys (pass required_keys at init)
 #     - Raises ValueError if any key missing
 #
+
 # 12. TransformProcessor(Processor)
 #     - Applies a transform_fn (passed at init) to task.payload
 #     - Returns transformed payload as result
