@@ -1,6 +1,7 @@
 # 10. Processor — abstract base class
 #     - process(task) — abstract async method
 #     - name property — abstract
+from models import TaskStatus, TaskResult
 from abc import abstractmethod, ABC
 
 class Processor(ABC):
@@ -18,10 +19,36 @@ class Processor(ABC):
 #     - Validates task payload has required keys (pass required_keys at init)
 #     - Raises ValueError if any key missing
 #
+class ValidationProcessor(Processor):
+    def __init__(self, required_keys):
+        self.required_keys = required_keys
+
+    @property
+    def name(self):
+        return "ValidationProcessor"
+
+    async def process(self, task):
+        for key in self.required_keys:
+            if key not in task.payload:
+                raise ValueError(f"Missing required key: {key}")
+        
+    
 
 # 12. TransformProcessor(Processor)
 #     - Applies a transform_fn (passed at init) to task.payload
 #     - Returns transformed payload as result
+class TransformProcessor(Processor):
+    def __init__(self, transform_fn):
+        self.transform_fn = transform_fn
+
+    @property
+    def name(self):
+        return "TransformProcessor"
+
+    async def process(self, task):
+        task.payload = self.transform_fn(task.payload)
+        return task.payload
+
 #
 # 13. TaskPipeline
 #     - Chains multiple Processors
@@ -31,33 +58,36 @@ class Processor(ABC):
 #     - Records duration
 import time
 class TaskPipeline:
-    def __init__(self,processors):
+    def __init__(self, processors):
         self.processors = processors
-    def execute(self, task):
+
+    async def execute(self, task):
         start = time.time()
+
         try:
             for processor in self.processors:
-                processor.process(task)
-            task.status = "SUCCESS"
-            duration = (time.time()-start) * 1000 # convert to milli seconds
-            return {
-                "task_id": task.id,
-                "output": task.payload,
-                "success": True,
-                "duration_ms": duration,
-                "error": None
-            }
+                await processor.process(task)
+
+            task.status = TaskStatus.SUCCESS
+
+            duration = (time.time() - start) * 1000
+
+            res = TaskResult(task.id, task.payload, True,duration,None)
+            task.result = res
+            return res
+
         except Exception as e:
-            task.status = "FAILED"
-            duration = (time.time()-start) * 1000
-            return {
-                "task_id": task.id,
-                "output": None,
-                "success": False,
-                "duration_ms": duration,
-                "error": str(e)
-            }
-#
+            task.status = TaskStatus.FAILED
+
+            duration = (time.time() - start) * 1000
+            res = TaskResult(task.id,
+                None,
+                False,
+                duration,
+                str(e))
+            task.res = res
+            return res
+
 # 14. TaskQueue — thread-safe priority queue
 #     - submit(task) — adds task, higher priority tasks dequeued first
 #     - next() — returns next task (blocks if empty)
@@ -101,3 +131,11 @@ class TaskQueue:
 #         e. on failure: if retry_count < max_retries, re-submits with RETRYING status
 #         f. on final failure: logs failure with error details
 #     - Tracks: total_processed, total_failed, total_cache_hits counters
+
+class WorkerPool:
+    def __init__(self, num_words, pipeline, cache, logger):
+        self.num_words = num_words
+        self.pipeline = pipeline
+        self.cache = cache
+        self.logger = logger
+        
