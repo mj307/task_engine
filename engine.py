@@ -94,9 +94,9 @@ class TaskPipeline:
 #     - empty property
 #     - size property
 #
-import heapq
+
 import asyncio
-import queue
+from logger import log_task_event
 
 class TaskQueue:
     def __init__(self):
@@ -133,9 +133,68 @@ class TaskQueue:
 #     - Tracks: total_processed, total_failed, total_cache_hits counters
 
 class WorkerPool:
-    def __init__(self, num_words, pipeline, cache, logger):
+    def __init__(self, num_words, pipeline, cache, logger, queue):
         self.num_words = num_words
         self.pipeline = pipeline
         self.cache = cache
         self.logger = logger
+        self.queue = queue
+        
+        self.total_processed = 0
+        self.total_failed = 0
+        self.total_cache_hits = 0
+
+        self.workers = []
+        self.running = False
+    
+    async def worker(self):
+        while self.running:
+            try: 
+                task = await self.queue.next()
+                is_cached = self.cache.get(task.id)
+                if is_cached:
+                    self.total_cache_hits += 1
+                    task.result = is_cached
+                    log_task_event(self.logger, task, "cache_hit")
+                    continue
+                # run pipeline (this is if event isnt already cached)
+                task.status = TaskStatus.RUNNING
+                log_task_event(self.logger, task, "started")
+                result = await self.pipeline.execute(task)
+                if result.success:
+                    self.cache.put(task.id, result)
+                    self.total_processed += 1
+                # retry logic if there was a failure
+                else:
+                    if task.retry_count < task.max_retries:
+                        task.retry_count += 1
+                        task.status = TaskStatus.RETRYING
+                        log_task_event(self.logger, task, "retrying")
+
+                        await self.queue.submit(task)
+                    else:
+                        self.total_failed += 1
+                        log_task_event(self.logger, task, "failed", {"error": result.error})
+
+            except asyncio.CancelledError:
+                break
+    
+    async def start(self):
+        self._running = True
+        self._workers = [
+            asyncio.create_task(self._worker(i))
+            for i in range(self.num_workers)
+        ]
+
+    async def stop(self):
+        self._running = False
+
+        for w in self._workers:
+            w.cancel()
+
+        await asyncio.gather(*self._workers, return_exceptions=True)
+
+    async def submit(self, task):
+        await self.queue.submit(task)
+    
         

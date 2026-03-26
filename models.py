@@ -52,5 +52,7 @@ class TaskResult:
         self.duration_ms = duration_ms
         self.error = error
         
+        
+        
               
 
