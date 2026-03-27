@@ -1,15 +1,6 @@
 # 1. TaskStatus — enum with: PENDING, RUNNING, SUCCESS, FAILED, RETRYING
 #
-# enum = fixed set of constant values, useful when a var shld only have certain values
-from enum import Enum
-class TaskStatus(Enum):
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    SUCCESS = "SUCCESS"
-    FAILED = "FAILED"
-    RETRYING = "RETRYING"
-    
-    
+# enum = fixed set of constant values, useful when a var shld only have certain values  
 # 2. Task — class with:
 #    - id (auto-generated uuid)
 #    - name (str)
@@ -28,24 +19,34 @@ class TaskStatus(Enum):
 #    - duration_ms (float)
 #    - error (str or None)
 
+from datetime import datetime
+from enum import Enum
 import uuid
-import datetime
+
+
+class TaskStatus(Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    RETRYING = "RETRYING"
+
 
 class Task:
-    def __init__(self, name: str, payload: dict, priority: int = 0, max_retries: int = 3):
+    def __init__(self, name, payload, priority=0, max_retries=2):
         self.id = str(uuid.uuid4())
         self.name = name
         self.payload = payload
         self.priority = priority
-        self.max_retries = max_retries
-        self.created_at = datetime.now()
 
         self.status = TaskStatus.PENDING
         self.retry_count = 0
-        self.result = None
+        self.max_retries = max_retries
+
+        self.created_at = datetime.now()
              
 class TaskResult:
-    def __init__(self, task_id, output, success: bool, duration_ms: float, error: str | None = None):
+    def __init__(self, task_id, output, success, duration_ms, error=None):
         self.task_id = task_id
         self.output = output
         self.success = success
